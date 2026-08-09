@@ -154,13 +154,14 @@ pub const TONE_NOTE_MODE: u32 = 64;
 // │                                                                           │
 // └───────────────────────────────────────────────────────────────────────────┘
 
-#[link(wasm_import_module = "env")]
-unsafe extern "C" {
-    /// Reads up to `size` bytes from persistent storage into the pointer `dest`.
-    pub fn diskr(dest: *mut u8, size: u32) -> u32;
+/// Reads up to `size` bytes from persistent storage into the pointer `dest`.
+pub fn diskr(dest: &mut [u8]) -> u32 {
+    unsafe { extern_diskr(dest.as_mut_ptr(), dest.len()) }
+}
 
-    /// Writes up to `size` bytes from the pointer `src` into persistent storage.
-    pub fn diskw(src: *const u8, size: u32) -> u32;
+/// Writes up to `size` bytes from the pointer `src` into persistent storage.
+pub fn diskw(src: &[u8]) -> u32 {
+    unsafe { extern_diskw(src.as_ptr(), src.len()) }
 }
 
 // ┌───────────────────────────────────────────────────────────────────────────┐
@@ -218,4 +219,10 @@ unsafe extern "C" {
 
     #[link_name = "traceUtf8"]
     fn extern_trace(trace: *const u8, length: usize);
+
+    #[link_name = "diskr"]
+    fn extern_diskr(dest: *mut u8, size: usize) -> u32;
+
+    #[link_name = "diskw"]
+    fn extern_diskw(src: *const u8, size: usize) -> u32;
 }
