@@ -99,11 +99,7 @@ diskw(&game_data transmute &u8, sizeof$i32());
 
 ```rust
 let game_data: i32 = 1337;
-
-unsafe {
-    let game_data_bytes = game_data.to_le_bytes();
-    diskw(game_data_bytes.as_ptr(), core::mem::size_of::<i32>() as u32);
-}
+diskw(&game_data.to_le_bytes());
 ```
 
 ```wasm
@@ -197,10 +193,10 @@ diskr(&game_data transmute &u8, sizeof$i32());
 ```
 
 ```rust
-let game_data = unsafe {
+let game_data = {
     let mut buffer = [0u8; core::mem::size_of::<i32>()];
 
-    diskr(buffer.as_mut_ptr(), buffer.len() as u32);
+    diskr(&mut buffer);
 
     i32::from_le_bytes(buffer)
 };
