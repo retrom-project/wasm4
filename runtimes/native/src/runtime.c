@@ -87,9 +87,9 @@ static void bounds_check_cstr(const char *p)
     }
 }
 
-void w4_runtimeInit (uint8_t* memoryBytes, w4_Disk* diskBytes) {
+void w4_runtimeInit (uint8_t* memoryBytes, w4_Disk* diskArg) {
     memory = (Memory*)memoryBytes;
-    disk = diskBytes;
+    disk = diskArg;
     firstFrame = true;
 
     // Set memory to initial state
@@ -186,9 +186,6 @@ void w4_runtimeTone (int frequency, int duration, int volume, int flags) {
 
 int w4_runtimeDiskr (uint8_t* dest, int size) {
     bounds_check(dest, size);
-    if (!disk) {
-        return 0;
-    }
 
     if (size > disk->size) {
         size = disk->size;
@@ -199,9 +196,6 @@ int w4_runtimeDiskr (uint8_t* dest, int size) {
 
 int w4_runtimeDiskw (const uint8_t* src, int size) {
     bounds_check(src, size);
-    if (!disk) {
-        return 0;
-    }
 
     if (size > 1024) {
         size = 1024;
