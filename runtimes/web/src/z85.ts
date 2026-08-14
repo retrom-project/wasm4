@@ -66,7 +66,7 @@ export function decode (string: string, dest: number[] | Uint8Array | Uint8Clamp
                     if (byte_nbr >= dest_len) {
                         return byte_nbr;
                     }
-                    dest[byte_nbr++] = (value / divisor) % 256;
+                    dest[byte_nbr++] = Math.trunc(value / divisor) % 256;
                     divisor /= 256;
                 }
                 value = 0;
@@ -90,16 +90,7 @@ export function test() {
         // Remove extra elements from dest array, and assert they're all zero
         assert(dest.splice(byte_number).every((el) => el === 0));
 
-        assert.deepEqual(dest, [
-            134.3118047118187,
-            79.82200622558594,
-            210.43359375,
-            111,
-            181.3514305949211,
-            89.96623229980469,
-            247.35546875,
-            91
-        ]);
+        assert.deepEqual(dest, encodes_to_string_hello_world);
     }
 
     {
