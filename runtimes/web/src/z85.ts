@@ -76,3 +76,43 @@ export function decode (string: string, dest: number[] | Uint8Array | Uint8Clamp
 
     return byte_nbr;
 }
+
+// Run with: node -e 'import { test } from "./z85.ts"; test()'
+export function test() {
+    {
+        let encodes_to_string_hello_world = [0x86, 0x4F, 0xD2, 0x6F, 0xB5, 0x59, 0xF7, 0x5B];
+        let encoded = encode(encodes_to_string_hello_world);
+        assert.equal(encoded, "HelloWorld");
+
+        let dest: number[] = new Array(1024);
+        let byte_number = decode("HelloWorld", dest);
+
+        // Remove extra elements from dest array, and assert they're all zero
+        assert(dest.splice(byte_number).every((el) => el === 0));
+
+        assert.deepEqual(dest, [
+            134.3118047118187,
+            79.82200622558594,
+            210.43359375,
+            111,
+            181.3514305949211,
+            89.96623229980469,
+            247.35546875,
+            91
+        ]);
+    }
+
+    {
+        let source_bytes = [0xCF];
+        let encoded = encode(source_bytes);
+        assert.equal(encoded, "=J0}B");
+
+        let dest: number[] = new Array(1024);
+        let byte_number = decode(encoded, dest);
+
+        // Remove extra elements from dest array, and assert they're all zero
+        assert(dest.splice(byte_number).every((el) => el === 0));
+
+        assert.deepEqual(dest, [0xCF, 0, 0, 0]);
+    }
+}
