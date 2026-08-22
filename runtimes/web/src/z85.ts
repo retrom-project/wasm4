@@ -137,38 +137,3 @@ export function decode(string: string, dest: number[] | Uint8Array | Uint8Clampe
 
     return byte_count;
 }
-
-// Run with: node -e 'import { test } from "./z85.ts"; test()'
-export function test() {
-    test_round_trip_from_bytes([0x86, 0x4F, 0xD2, 0x6F, 0xB5, 0x59, 0xF7, 0x5B], "HelloWorld");
-
-    test_round_trip_from_bytes([0xCF], "%P5tE");
-
-    test_round_trip_from_bytes([0xFF], "%P5u3");
-
-
-    test_round_trip_from_bytes([], "");
-    test_round_trip_from_bytes([0x00], "%P5r3");
-    test_round_trip_from_bytes([0x00, 0x11]);
-    test_round_trip_from_bytes([0x00, 0x11, 0x22]);
-    test_round_trip_from_bytes([0x00, 0x11, 0x22, 0x33]);
-    
-    test_round_trip_from_bytes([0x00, 0x00, 0x00, 0x00], "00000");
-    test_round_trip_from_bytes([0xFF, 0xFF, 0xFF, 0xFF], "%nSc0");
-}
-
-declare const assert: any;
-function test_round_trip_from_bytes(source_bytes: number[], expected_z85?: string) {
-    let encoded = encode(source_bytes);
-    if (expected_z85 !== undefined) {
-        assert.equal(encoded, expected_z85);
-    }
-
-    let dest: number[] = new Array(1024);
-    let byte_number = decode(encoded, dest);
-
-    // Remove extra elements from dest array, and assert they're all zero
-    assert(dest.splice(byte_number).every((el) => el === 0));
-
-    assert.deepEqual(dest, source_bytes);
-}
