@@ -1,78 +1,139 @@
 // Encodes binary data into text, like base64 but more efficient.
 //
-// Implements http://rfc.zeromq.org/spec:32
-// Ported from https://github.com/zeromq/libzmq/blob/8cda54c52b08005b71f828243f22051cdbc482b4/src/zmq_utils.cpp#L77-L168
+// Originally based on http://rfc.zeromq.org/spec:32 but customised to support byte strings with
+// lengths not divisible by 4.
+//
+// 85^5 = 4,437,053,125
+// 2^32 = 4,294,967,296
+// 85^5 - 2^32 = 142,085,829
+// 2^24 + 2^16 + 2^8 = 16,843,008
+// Therefore there are more than enough states in a 5 character base 85 block to additionaly represent 3, 2, and 1 byte long blocks.
 
 const ENCODER = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-:+=^!/*?&<>()[]{}@%$#".split("");
 
-const DECODER = [
-    0x00, 0x44, 0x00, 0x54, 0x53, 0x52, 0x48, 0x00,
-    0x4B, 0x4C, 0x46, 0x41, 0x00, 0x3F, 0x3E, 0x45,
-    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-    0x08, 0x09, 0x40, 0x00, 0x49, 0x42, 0x4A, 0x47,
-    0x51, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A,
-    0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32,
-    0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A,
-    0x3B, 0x3C, 0x3D, 0x4D, 0x00, 0x4E, 0x43, 0x00,
-    0x00, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
-    0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-    0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
-    0x21, 0x22, 0x23, 0x4F, 0x00, 0x50, 0x00, 0x00
-];
+const DECODER_OFFSET = 33;
+const DECODER: Uint8Array = (() => {
+    // The lowest ascii character we use is ! with ascii encoding 33.
+    // The highest ascii character we use is } with ascii encoding 125.
+    // So we need an array of length 125-33+1 = 93.
+    let decoder_array = new Uint8Array(93);
+    for (const [i, c] of ENCODER.entries()) {
+        decoder_array[c.charCodeAt(0) - DECODER_OFFSET] = i;
+    }
+    return decoder_array;
+})();
 
-export function encode (src: number[] | Uint8Array | Uint8ClampedArray): string {
+export function encode(src: number[] | Uint8Array | Uint8ClampedArray): string {
     const size = src.length;
-    const extra = (size % 4);
-    const paddedSize = extra ? size + 4-extra : size;
 
-	let str = "",
-		byte_nbr = 0,
-		value = 0;
-	while (byte_nbr < paddedSize) {
-        const b = (byte_nbr < size) ? src[byte_nbr] : 0;
-        ++byte_nbr;
-		value = (value * 256) + b;
-		if ((byte_nbr % 4) == 0) {
-			let divisor = 85 * 85 * 85 * 85;
-			while (divisor >= 1) {
-				const idx = Math.floor(value / divisor) % 85;
-				str += ENCODER[idx];
-				divisor /= 85;
-			}
-			value = 0;
-		}
+	let str = "";
+    let byte_index;
+    let temp_array = new Array(5);
+	for (byte_index = 0; byte_index + 4 <= size; byte_index += 4) {
+        // Accumulate 4 bytes into a number
+        let value = src[byte_index];
+        for (let i = byte_index + 1; i < byte_index + 4; i++) {
+            value = value*256 + src[i];
+        }
+        
+        // Express the number in 5 digits of base 85
+        for (let i = 4; i >= 0; i--) {
+            temp_array[i] = value % 85;
+            value = Math.trunc(value / 85);
+        }
+
+        for (let i = 0; i < 5; i++) {
+            str += ENCODER[temp_array[i]];
+        }
 	}
+
+    // Deal with the remaining (size % 4) bytes.
+    const remaining_length = size - byte_index;
+    let value = 0;
+    for (; byte_index < size; byte_index += 1) {
+        value = 256*value + src[byte_index];
+    }
+
+    if (remaining_length == 3) {
+        value += 2 ** 32;
+    } else if (remaining_length == 2) {
+        value += (2 ** 32) + (2 ** 24);
+    } else if (remaining_length == 1) {
+        value += (2 ** 32) + (2 ** 24) + (2 ** 16);
+    }
+
+    if (remaining_length != 0) {
+        // Express the number in 5 digits of base 85
+        for (let i = 4; i >= 0; i--) {
+            temp_array[i] = value % 85;
+            value = Math.trunc(value / 85);
+        }
+
+        for (let i = 0; i < 5; i++) {
+            str += ENCODER[temp_array[i]];
+        }
+    }
 
 	return str;
 }
 
-export function decode (string: string, dest: number[] | Uint8Array | Uint8ClampedArray): number {
-    let byte_nbr = 0,
-        char_nbr = 0,
-        value = 0;
-    const string_len = string.length,
-        dest_len = dest.length;
+export function decode(string: string, dest: number[] | Uint8Array | Uint8ClampedArray): number {
+    let byte_count = 0;
+    const string_len = string.length;
+    const dest_len = dest.length;
 
-    if ((string.length % 5) == 0) {
-        while (char_nbr < string_len) {
-            const idx = string.charCodeAt(char_nbr++) - 32;
-            if ((idx < 0) || (idx >= DECODER.length)) {
-                return byte_nbr;
+    if ((string_len % 5) != 0) {
+        return 0;
+    }
+
+    let temp_array = new Array(4);
+    for (let char_index = 0; char_index < string_len; char_index += 5) {
+        let value = 0;
+        for (let i = char_index; i < char_index + 5; i++) {
+            const decoder_index = string.charCodeAt(i) - DECODER_OFFSET;
+            let base_85_digit = DECODER[decoder_index];
+            if (base_85_digit === undefined) {
+                return char_index;
             }
-            value = (value * 85) + DECODER[idx];
-            if ((char_nbr % 5) == 0) {
-                let divisor = 256 * 256 * 256;
-                while (divisor >= 1) {
-                    if (byte_nbr >= dest_len) {
-                        return byte_nbr;
-                    }
-                    dest[byte_nbr++] = (value / divisor) % 256;
-                    divisor /= 256;
+            value = (value * 85) + base_85_digit;
+        }
+
+        // Do special things if value >= 2**32
+        let chunk_byte_length;
+        if (value >= 2**32) {
+            value -= 2**32;
+            if (value >= 2**24) {
+                value -= 2**24;
+                if (value >= 2**16) {
+                    value -= 2**16;
+                    chunk_byte_length = 1;
+                } else {
+                    chunk_byte_length = 2;
                 }
-                value = 0;
+            } else {
+                chunk_byte_length = 3;
             }
+        } else {
+            chunk_byte_length = 4;
+        }
+
+        for (let i = chunk_byte_length-1; i >= 0; i--) {
+            temp_array[i] = value % 256;
+            value = Math.trunc(value / 256);
+        }
+        
+        for (let i = 0; i < chunk_byte_length; i++) {
+            if (byte_count >= dest_len) {
+                return byte_count;
+            }
+            dest[byte_count] = temp_array[i];
+            byte_count++;
+        }
+
+        if (chunk_byte_length != 4) {
+            return byte_count;
         }
     }
 
-    return byte_nbr;
+    return byte_count;
 }
