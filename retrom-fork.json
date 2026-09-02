@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "forkRepository": "https://github.com/retrom-project/wasm4",
+  "defaultBranch": "retrom/gca2600db8de4",
+  "upstreamMirrorBranch": "main",
+  "upstreams": [
+    {
+      "role": "engine-baseline",
+      "repository": "https://github.com/aduros/wasm4",
+      "refType": "COMMIT",
+      "ref": "ca2600db8de49d0d228ed57dd6c6778fb579a013",
+      "commit": "ca2600db8de49d0d228ed57dd6c6778fb579a013"
+    }
+  ],
+  "releaseTagPattern": "^retrom-core-gca2600db8de4-r[1-9][0-9]*(-rc\\.[1-9][0-9]*)?$",
+  "adapterAbi": "wasm4-state-v1",
+  "releaseAssets": [
+    "wasm4-retrom.mjs",
+    "LICENSE.txt",
+    "rpg-runtime-release.json"
+  ]
+}

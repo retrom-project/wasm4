@@ -1,0 +1,42 @@
+name: RPG Runtime Quality
+
+on:
+  pull_request:
+    branches: ["retrom/gca2600db8de4"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rpg-runtime-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate fixed fork source contract
+        run: python3 .github/rpg-runtime/verify-source.py
+      - name: Build Web assets
+        run: |
+          mkdir "$RUNNER_TEMP/rpg-runtime-output"
+          .github/rpg-runtime/build-web.sh "$RUNNER_TEMP/rpg-runtime-output"
+      - name: Validate candidate assets
+        run: |
+          python3 .github/rpg-runtime/verify-release.py \
+            --output "$RUNNER_TEMP/rpg-runtime-output" \
+            --repository "https://github.com/$GITHUB_REPOSITORY" \
+            --tag retrom-core-gca2600db8de4-r1-rc.1 \
+            --commit "$GITHUB_SHA"
+      - name: Upload branch integration candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpg-runtime-wasm4-${{ github.sha }}
+          path: ${{ runner.temp }}/rpg-runtime-output
+          if-no-files-found: error
+          retention-days: 7

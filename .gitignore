@@ -3,6 +3,7 @@
 cli/assets/natives
 
 node_modules
+.github/rpg-runtime/__pycache__/
 
 # Misc
 .DS_Store

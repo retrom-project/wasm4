@@ -35,6 +35,7 @@ export class Runtime {
             alpha: false,
             depth: false,
             antialias: false,
+            preserveDrawingBuffer: true,
         });
 
         if(!gl) {
